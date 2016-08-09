@@ -1,5 +1,6 @@
 use {Future, Poll, Task};
 use util::Collapsed;
+use alloc::boxed::Box;
 
 pub fn forget<T: Future + Send>(t: T) {
     let thunk = ThunkFuture { inner: Collapsed::Start(t) };

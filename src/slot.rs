@@ -7,7 +7,8 @@
 
 #![allow(dead_code)] // imported in a few places
 
-use std::sync::atomic::{AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicUsize, Ordering};
+use alloc::boxed::Box;
 
 use lock::Lock;
 
@@ -475,9 +476,9 @@ impl State {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::thread;
+    use core::sync::Arc;
+    use core::sync::atomic::{AtomicUsize, Ordering};
+    use core::thread;
 
     use super::Slot;
 

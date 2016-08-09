@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
-use std::mem;
+use core::mem;
+use alloc::boxed::Box;
 
 use {Future, Task, Poll, IntoFuture};
 use util::Collapsed;

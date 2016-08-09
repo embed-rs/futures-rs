@@ -1,5 +1,6 @@
 use {Task, Poll};
 use stream::Stream;
+use alloc::boxed::Box;
 
 impl<S: ?Sized + Stream> Stream for Box<S> {
     type Item = S::Item;

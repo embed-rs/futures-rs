@@ -1,4 +1,5 @@
-use std::mem;
+use core::mem;
+use alloc::boxed::Box;
 
 use {Task, Future, Poll, IntoFuture};
 use stream::Stream;

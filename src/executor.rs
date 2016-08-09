@@ -3,8 +3,8 @@
 //! Note that this interface is very likely to change and not stay as-is, and it
 //! is not currently used much by futures beyond `DEFAULT`.
 
-use std::cell::{Cell, RefCell};
-use std::sync::Arc;
+use alloc::boxed::Box;
+use alloc::arc::Arc;
 
 /// Encapsulation of a value which has the ability to execute arbitrary code.
 ///
@@ -31,7 +31,7 @@ pub trait Executor: Send + Sync + 'static {
 }
 
 /// The default executor, used by futures by default currently.
-pub static DEFAULT: Limited = Limited;
+pub static DEFAULT: Inline = Inline;
 
 impl<T: Executor + ?Sized + Send + Sync + 'static> Executor for Box<T> {
     fn execute_boxed(&self, f: Box<ExecuteCallback>) {
@@ -71,6 +71,7 @@ impl Executor for Inline {
     }
 }
 
+/*
 /// Implementation of an executor which executes all callbacks immediately, but
 /// bounds the amount of recursion to prevent blowing the stack.
 pub struct Limited;
@@ -151,3 +152,5 @@ mod tests {
         assert_eq!(hits.load(Ordering::SeqCst), n);
     }
 }
+
+*/

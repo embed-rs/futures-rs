@@ -11,6 +11,7 @@
 //! ready as well.
 // TODO: expand these docs
 
+use alloc::boxed::Box;
 use {Task, IntoFuture, Poll};
 
 mod channel;

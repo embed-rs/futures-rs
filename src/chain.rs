@@ -1,4 +1,5 @@
-use std::mem;
+use core::mem;
+use alloc::boxed::Box;
 
 use util::Collapsed;
 use {Future, Task, Poll};

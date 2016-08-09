@@ -1,5 +1,5 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicBool, Ordering};
+use alloc::arc::Arc;
 
 use {Future, Task, Poll};
 use slot::{Slot, Token};

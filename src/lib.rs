@@ -149,7 +149,14 @@
 //!
 //! [README]: https://github.com/alexcrichton/futures-rs#futures-rs
 
+#![feature(alloc, collections)]
+#![no_std]
 #![deny(missing_docs)]
+
+extern crate alloc;
+extern crate collections;
+
+use alloc::boxed::Box;
 
 #[macro_use]
 extern crate log;

@@ -1,3 +1,5 @@
+use alloc::boxed::Box;
+
 use {Future, Task, Poll};
 use util::Collapsed;
 

@@ -1,4 +1,5 @@
-use std::mem;
+use core::mem;
+use collections::vec::Vec;
 
 use {Task, Future, Poll};
 use stream::Stream;

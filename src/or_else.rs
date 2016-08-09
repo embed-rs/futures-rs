@@ -1,3 +1,5 @@
+use alloc::boxed::Box;
+
 use {Future, IntoFuture, Task, Poll};
 use chain::Chain;
 

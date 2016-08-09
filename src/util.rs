@@ -1,3 +1,5 @@
+use alloc::boxed::Box;
+
 use {Future, Task, Poll};
 
 /// A helpful structure for representing a future that is collapsed over time.

@@ -57,12 +57,11 @@
 // proving that you can get access to the data. So while weird, this case should
 // still be safe, as the data's not stored in the task itself.
 
-use std::cell::{UnsafeCell, Cell};
-use std::marker;
-use std::panic;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
+use core::cell::{UnsafeCell, Cell};
+use core::marker;
+use core::sync::atomic::{AtomicBool, Ordering};
+use collections::vec::Vec;
+use alloc::arc::Arc;
 
 use BoxFuture;
 use executor::{DEFAULT, Executor};
@@ -303,9 +302,12 @@ impl Task {
         //
         // The syntax here is a little odd, but the idea is that if it panics
         // we've lost access to `self`, `future`, and `me` all in one go.
+        /*
         let result = catch_unwind(move || {
             (future.poll(&mut me), future, me)
         });
+        */
+        let result: Result<_, ()> = Ok((future.poll(&mut me), future, me));
 
         // See what happened, if the future is ready then we're done entirely,
         // otherwise we rebind ourselves and the future we're polling and keep
@@ -319,7 +321,7 @@ impl Task {
             // TODO: this error probably wants to get communicated to
             //       another closure in one way or another, or perhaps if
             //       nothing is registered the panic propagates.
-            Err(e) => panic::resume_unwind(e),
+            Err(_/*e*/) => unreachable!(), //panic::resume_unwind(e),
         }
 
         // Perform tail call optimization on the future, attempting to pull out
@@ -344,11 +346,13 @@ impl Task {
     }
 }
 
+/*
 fn catch_unwind<F, U>(f: F) -> thread::Result<U>
     where F: FnOnce() -> U + Send + 'static,
 {
     panic::catch_unwind(panic::AssertUnwindSafe(f))
 }
+*/
 
 impl TaskHandle {
     /// Returns whether this task handle and another point to the same task.

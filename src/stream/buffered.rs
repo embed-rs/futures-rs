@@ -1,8 +1,9 @@
-use std::mem;
+use core::mem;
 
 use {Task, IntoFuture, Poll, Future};
 use stream::{Stream, Fuse};
 use util::Collapsed;
+use collections::vec::Vec;
 
 /// An adaptor for a stream of futures to execute the futures concurrently, if
 /// possible.
