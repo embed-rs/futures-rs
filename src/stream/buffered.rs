@@ -18,7 +18,7 @@ pub struct Buffered<S>
 
 pub fn new<S>(s: S, amt: usize) -> Buffered<S>
     where S: Stream,
-          S::Item: IntoFuture<Error=<S as Stream>::Error>,
+          S::Item: IntoFuture,
 {
     Buffered {
         stream: super::fuse::new(s),
@@ -28,12 +28,11 @@ pub fn new<S>(s: S, amt: usize) -> Buffered<S>
 
 impl<S> Stream for Buffered<S>
     where S: Stream,
-          S::Item: IntoFuture<Error=<S as Stream>::Error>,
+    S::Item: IntoFuture,
 {
     type Item = <S::Item as IntoFuture>::Item;
-    type Error = <S as Stream>::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<Option<Self::Item>, Self::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<Option<Self::Item>> {
         let mut any_some = false;
         for f in self.futures.iter_mut() {
             // First, if this slot is empty, try to fill it in. If we fill it in
@@ -43,7 +42,6 @@ impl<S> Stream for Buffered<S>
                     Poll::Ok(Some(e)) => {
                         *f = Some(Collapsed::Start(e.into_future()));
                     }
-                    Poll::Err(e) => return Poll::Err(e),
                     Poll::Ok(None) |
                     Poll::NotReady => continue,
                 }
@@ -54,7 +52,6 @@ impl<S> Stream for Buffered<S>
                 let future = f.as_mut().unwrap();
                 match future.poll(task) {
                     Poll::Ok(e) => Poll::Ok(Some(e)),
-                    Poll::Err(e) => Poll::Err(e),
 
                     // TODO: should this happen here or elsewhere?
                     Poll::NotReady => {
@@ -96,4 +93,3 @@ impl<S> Stream for Buffered<S>
         }
     }
 }
-

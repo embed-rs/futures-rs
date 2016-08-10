@@ -15,7 +15,7 @@ pub struct SkipWhile<S, P, R> where S: Stream, R: IntoFuture {
 pub fn new<S, P, R>(s: S, p: P) -> SkipWhile<S, P, R>
     where S: Stream,
           P: FnMut(&S::Item) -> R + Send + 'static,
-          R: IntoFuture<Item=bool, Error=S::Error>,
+          R: IntoFuture<Item=bool>,
 {
     SkipWhile {
         stream: s,
@@ -28,12 +28,11 @@ pub fn new<S, P, R>(s: S, p: P) -> SkipWhile<S, P, R>
 impl<S, P, R> Stream for SkipWhile<S, P, R>
     where S: Stream,
           P: FnMut(&S::Item) -> R + Send + 'static,
-          R: IntoFuture<Item=bool, Error=S::Error>,
+          R: IntoFuture<Item=bool>,
 {
     type Item = S::Item;
-    type Error = S::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<Option<S::Item>, S::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<Option<S::Item>> {
         if self.done_skipping {
             return self.stream.poll(task);
         }
@@ -41,24 +40,19 @@ impl<S, P, R> Stream for SkipWhile<S, P, R>
         loop {
             if self.pending.is_none() {
                 let item = match try_poll!(self.stream.poll(task)) {
-                    Ok(Some(e)) => e,
-                    Ok(None) => return Poll::Ok(None),
-                    Err(e) => return Poll::Err(e),
+                    Some(e) => e,
+                    None => return Poll::Ok(None),
                 };
                 self.pending = Some(((self.pred)(&item).into_future(), item));
             }
 
             assert!(self.pending.is_some());
             match try_poll!(self.pending.as_mut().unwrap().0.poll(task)) {
-                Ok(true) => self.pending = None,
-                Ok(false) => {
+                true => self.pending = None,
+                false => {
                     let (_, item) = self.pending.take().unwrap();
                     self.done_skipping = true;
                     return Poll::Ok(Some(item))
-                }
-                Err(e) => {
-                    self.pending = None;
-                    return Poll::Err(e)
                 }
             }
         }
@@ -72,7 +66,7 @@ impl<S, P, R> Stream for SkipWhile<S, P, R>
 impl<S, P, R> SkipWhile<S, P, R>
     where S: Stream,
           P: FnMut(&S::Item) -> R + Send + 'static,
-          R: IntoFuture<Item=bool, Error=S::Error>,
+          R: IntoFuture<Item=bool>,
 {
     /// Consume this adaptor, returning the underlying stream.
     ///

@@ -22,14 +22,13 @@ pub fn new<A, B, F>(future: A, f: F) -> Then<A, B, F>
 impl<A, B, F> Future for Then<A, B, F>
     where A: Future,
           B: IntoFuture,
-          F: FnOnce(Result<A::Item, A::Error>) -> B + Send + 'static,
+          F: FnOnce(A::Item) -> B + Send + 'static,
 {
     type Item = B::Item;
-    type Error = B::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<B::Item, B::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<B::Item> {
         self.state.poll(task, |a, f| {
-            Ok(Err(f(a).into_future()))
+            Err(f(a).into_future())
         })
     }
 
@@ -38,7 +37,7 @@ impl<A, B, F> Future for Then<A, B, F>
     }
 
     fn tailcall(&mut self)
-                -> Option<Box<Future<Item=Self::Item, Error=Self::Error>>> {
+                -> Option<Box<Future<Item=Self::Item>>> {
         self.state.tailcall()
     }
 }

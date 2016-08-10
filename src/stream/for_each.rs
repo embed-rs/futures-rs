@@ -12,7 +12,7 @@ pub struct ForEach<S, F> {
 
 pub fn new<S, F>(s: S, f: F) -> ForEach<S, F>
     where S: Stream,
-          F: FnMut(S::Item) -> Result<(), S::Error> + Send + 'static
+          F: FnMut(S::Item) -> () + Send + 'static
 {
     ForEach {
         stream: s,
@@ -22,22 +22,15 @@ pub fn new<S, F>(s: S, f: F) -> ForEach<S, F>
 
 impl<S, F> Future for ForEach<S, F>
     where S: Stream,
-          F: FnMut(S::Item) -> Result<(), S::Error> + Send + 'static
+          F: FnMut(S::Item) + Send + 'static
 {
     type Item = ();
-    type Error = S::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<(), S::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<()> {
         loop {
             match try_poll!(self.stream.poll(task)) {
-                Ok(Some(e)) => {
-                    match (self.f)(e) {
-                        Ok(()) => {}
-                        Err(e) => return Poll::Err(e),
-                    }
-                }
-                Ok(None) => return Poll::Ok(()),
-                Err(e) => return Poll::Err(e),
+                Some(e) => (self.f)(e),
+                None => return Poll::Ok(()),
             }
         }
     }

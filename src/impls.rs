@@ -2,14 +2,12 @@ use std::mem;
 
 use {Future, empty, Poll, Task};
 
-impl<T, E> Future for Box<Future<Item=T, Error=E>>
+impl<T> Future for Box<Future<Item=T>>
     where T: Send + 'static,
-          E: Send + 'static,
 {
     type Item = T;
-    type Error = E;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<Self::Item, Self::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<Self::Item> {
         (**self).poll(task)
     }
 
@@ -18,7 +16,7 @@ impl<T, E> Future for Box<Future<Item=T, Error=E>>
     }
 
     fn tailcall(&mut self)
-                -> Option<Box<Future<Item=Self::Item, Error=Self::Error>>> {
+                -> Option<Box<Future<Item=Self::Item>>> {
         if let Some(f) = (**self).tailcall() {
             return Some(f)
         }
@@ -28,9 +26,8 @@ impl<T, E> Future for Box<Future<Item=T, Error=E>>
 
 impl<F: Future> Future for Box<F> {
     type Item = F::Item;
-    type Error = F::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<Self::Item, Self::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<Self::Item> {
         (**self).poll(task)
     }
 
@@ -39,7 +36,7 @@ impl<F: Future> Future for Box<F> {
     }
 
     fn tailcall(&mut self)
-                -> Option<Box<Future<Item=Self::Item, Error=Self::Error>>> {
+                -> Option<Box<Future<Item=Self::Item>>> {
         (**self).tailcall()
     }
 }

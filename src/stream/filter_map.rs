@@ -26,18 +26,16 @@ impl<S, F, B> Stream for FilterMap<S, F>
           B: Send + 'static,
 {
     type Item = B;
-    type Error = S::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<Option<B>, S::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<Option<B>> {
         loop {
             match try_poll!(self.stream.poll(task)) {
-                Ok(Some(e)) => {
+                Some(e) => {
                     if let Some(e) = (self.f)(e) {
                         return Poll::Ok(Some(e))
                     }
                 }
-                Ok(None) => return Poll::Ok(None),
-                Err(e) => return Poll::Err(e),
+                None => return Poll::Ok(None),
             }
         }
     }

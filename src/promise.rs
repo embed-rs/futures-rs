@@ -113,17 +113,16 @@ impl<T> Drop for Complete<T>
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Canceled;
 
-impl<T: Send + 'static> Future for Promise<T> {
-    type Item = T;
-    type Error = Canceled;
+impl<T: Send + 'static> Future for Promise<Result<T, Canceled>> {
+    type Item = Result<T, Canceled>;
 
-    fn poll(&mut self, _: &mut Task) -> Poll<T, Canceled> {
+    fn poll(&mut self, _: &mut Task) -> Poll<Result<T, Canceled>> {
         if self.inner.pending_wake.load(Ordering::SeqCst) {
             return Poll::NotReady
         }
         match self.inner.slot.try_consume() {
             Ok(Some(e)) => Poll::Ok(e),
-            Ok(None) => Poll::Err(Canceled),
+            Ok(None) => Poll::Ok(Err(Canceled)),
             Err(_) => Poll::NotReady,
         }
     }

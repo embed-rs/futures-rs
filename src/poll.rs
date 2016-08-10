@@ -3,46 +3,29 @@
 macro_rules! try_poll {
     ($e:expr) => (match $e {
         $crate::Poll::NotReady => return $crate::Poll::NotReady,
-        $crate::Poll::Ok(t) => Ok(t),
-        $crate::Poll::Err(e) => Err(e),
+        $crate::Poll::Ok(t) => t,
     })
 }
 
 /// Possible return values from the `Future::poll` method.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Poll<T, E> {
+pub enum Poll<T> {
     /// Indicates that the future is not ready yet, ask again later.
     NotReady,
 
     /// Indicates that the future has completed successfully, and this value is
     /// what the future completed with.
     Ok(T),
-
-    /// Indicates that the future has failed, and this error is what the future
-    /// failed with.
-    Err(E),
 }
 
-impl<T, E> Poll<T, E> {
+impl<T> Poll<T> {
     /// Change the success type of this `Poll` value with the closure provided
-    pub fn map<F, U>(self, f: F) -> Poll<U, E>
+    pub fn map<F, U>(self, f: F) -> Poll<U>
         where F: FnOnce(T) -> U
     {
         match self {
             Poll::NotReady => Poll::NotReady,
             Poll::Ok(t) => Poll::Ok(f(t)),
-            Poll::Err(e) => Poll::Err(e),
-        }
-    }
-
-    /// Change the error type of this `Poll` value with the closure provided
-    pub fn map_err<F, U>(self, f: F) -> Poll<T, U>
-        where F: FnOnce(E) -> U
-    {
-        match self {
-            Poll::NotReady => Poll::NotReady,
-            Poll::Ok(t) => Poll::Ok(t),
-            Poll::Err(e) => Poll::Err(f(e)),
         }
     }
 
@@ -59,21 +42,17 @@ impl<T, E> Poll<T, E> {
         !self.is_not_ready()
     }
 
-    /// Unwraps this `Poll` into a `Result`, panicking if it's not ready.
-    pub fn unwrap(self) -> Result<T, E> {
+    /// Unwraps this `Poll`, panicking if it's not ready.
+    pub fn unwrap(self) -> T {
         match self {
-            Poll::Ok(t) => Ok(t),
-            Poll::Err(t) => Err(t),
+            Poll::Ok(t) => t,
             Poll::NotReady => panic!("unwrapping a Poll that wasn't ready"),
         }
     }
 }
 
-impl<T, E> From<Result<T, E>> for Poll<T, E> {
-    fn from(r: Result<T, E>) -> Poll<T, E> {
-        match r {
-            Ok(t) => Poll::Ok(t),
-            Err(t) => Poll::Err(t),
-        }
+impl<T> From<T> for Poll<T> {
+    fn from(r: T) -> Poll<T> {
+        Poll::Ok(r)
     }
 }

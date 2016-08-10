@@ -105,7 +105,7 @@ pub struct TaskHandle {
 }
 
 struct Inner {
-    slot: Slot<(Task, Box<Future<Item=(), Error=()>>)>,
+    slot: Slot<(Task, Box<Future<Item=()>>)>,
     registered: AtomicBool,
 }
 
@@ -291,7 +291,7 @@ impl Task {
     ///
     /// Currently, if `poll` panics, then this method will propagate the panic
     /// to the thread that `poll` was called on. This is bad and it will change.
-    pub fn run(self, mut future: Box<Future<Item=(), Error=()>>) {
+    pub fn run(self, mut future: Box<Future<Item=()>>) {
         let mut me = self;
 
         // First up, poll the future, but do so in a `catch_unwind` to ensure

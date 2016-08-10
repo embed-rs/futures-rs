@@ -25,18 +25,16 @@ impl<S, F> Stream for Filter<S, F>
           F: FnMut(&S::Item) -> bool + Send + 'static,
 {
     type Item = S::Item;
-    type Error = S::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<Option<S::Item>, S::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<Option<S::Item>> {
         loop {
             match try_poll!(self.stream.poll(task)) {
-                Ok(Some(e)) => {
+                Some(e) => {
                     if (self.f)(&e) {
                         return Poll::Ok(Some(e))
                     }
                 }
-                Ok(None) => return Poll::Ok(None),
-                Err(e) => return Poll::Err(e),
+                None => return Poll::Ok(None),
             }
         }
     }

@@ -72,28 +72,13 @@ impl<I> Future for Collect<I>
           I::Item: IntoFuture,
 {
     type Item = Vec<<I::Item as IntoFuture>::Item>;
-    type Error = <I::Item as IntoFuture>::Error;
 
 
-    fn poll(&mut self, task: &mut Task) -> Poll<Self::Item, Self::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<Self::Item> {
         loop {
             match self.cur {
                 Some(ref mut cur) => {
-                    match try_poll!(cur.poll(task)) {
-                        Ok(e) => self.result.push(e),
-
-                        // If we hit an error, drop all our associated resources
-                        // ASAP.
-                        Err(e) => {
-                            for f in self.remaining.by_ref() {
-                                drop(f);
-                            }
-                            for f in self.result.drain(..) {
-                                drop(f);
-                            }
-                            return Poll::Err(e)
-                        }
-                    }
+                    self.result.push(try_poll!(cur.poll(task)));
                 }
                 None => {
                     return Poll::Ok(mem::replace(&mut self.result, Vec::new()))
@@ -113,7 +98,7 @@ impl<I> Future for Collect<I>
     }
 
     fn tailcall(&mut self)
-                -> Option<Box<Future<Item=Self::Item, Error=Self::Error>>> {
+                -> Option<Box<Future<Item=Self::Item>>> {
         if let Some(ref mut cur) = self.cur {
             cur.collapse();
         }

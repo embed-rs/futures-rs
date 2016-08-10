@@ -13,7 +13,7 @@ macro_rules! generate {
         /// This is created by this `Future::join` method.
         pub struct $Join<A, $($B),*>
             where A: Future,
-                  $($B: Future<Error=A::Error>),*
+                  $($B: Future),*
         {
             a: MaybeDone<A>,
             $($B: MaybeDone<$B>,)*
@@ -21,7 +21,7 @@ macro_rules! generate {
 
         pub fn $new<A, $($B),*>(a: A, $($B: $B),*) -> $Join<A, $($B),*>
             where A: Future,
-                  $($B: Future<Error=A::Error>),*
+                  $($B: Future),*
         {
             let a = Collapsed::Start(a);
             $(let $B = Collapsed::Start($B);)*
@@ -33,7 +33,7 @@ macro_rules! generate {
 
         impl<A, $($B),*> $Join<A, $($B),*>
             where A: Future,
-                  $($B: Future<Error=A::Error>),*
+                  $($B: Future),*
         {
             fn erase(&mut self) {
                 self.a = MaybeDone::Gone;
@@ -43,27 +43,14 @@ macro_rules! generate {
 
         impl<A, $($B),*> Future for $Join<A, $($B),*>
             where A: Future,
-                  $($B: Future<Error=A::Error>),*
+                  $($B: Future),*
         {
             type Item = (A::Item, $($B::Item),*);
-            type Error = A::Error;
 
-            fn poll(&mut self, task: &mut Task) -> Poll<Self::Item, Self::Error> {
-                let mut all_done = match self.a.poll(task) {
-                    Ok(done) => done,
-                    Err(e) => {
-                        self.erase();
-                        return Poll::Err(e)
-                    }
-                };
+            fn poll(&mut self, task: &mut Task) -> Poll<Self::Item> {
+                let mut all_done = self.a.poll(task);
                 $(
-                    all_done = match self.$B.poll(task) {
-                        Ok(done) => all_done && done,
-                        Err(e) => {
-                            self.erase();
-                            return Poll::Err(e)
-                        }
-                    };
+                    all_done = all_done && self.$B.poll(task);
                 )*
 
                 if all_done {
@@ -85,7 +72,7 @@ macro_rules! generate {
             }
 
             fn tailcall(&mut self)
-                        -> Option<Box<Future<Item=Self::Item, Error=Self::Error>>> {
+                        -> Option<Box<Future<Item=Self::Item>>> {
                 self.a.collapse();
                 $(self.$B.collapse();)*
                 None
@@ -108,19 +95,18 @@ enum MaybeDone<A: Future> {
 }
 
 impl<A: Future> MaybeDone<A> {
-    fn poll(&mut self, task: &mut Task) -> Result<bool, A::Error> {
+    fn poll(&mut self, task: &mut Task) -> bool {
         let res = match *self {
             MaybeDone::NotYet(ref mut a) => a.poll(task),
-            MaybeDone::Done(_) => return Ok(true),
+            MaybeDone::Done(_) => return true,
             MaybeDone::Gone => panic!("cannot poll Join twice"),
         };
         match res {
             Poll::Ok(res) => {
                 *self = MaybeDone::Done(res);
-                Ok(true)
+                true
             }
-            Poll::Err(res) => Err(res),
-            Poll::NotReady => Ok(false),
+            Poll::NotReady => false,
         }
     }
 

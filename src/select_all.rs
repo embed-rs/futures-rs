@@ -48,24 +48,19 @@ impl<A> Future for SelectAll<A>
     where A: Future,
 {
     type Item = (A::Item, usize, Vec<SelectAllNext<A>>);
-    type Error = (A::Error, usize, Vec<SelectAllNext<A>>);
 
-    fn poll(&mut self, task: &mut Task) -> Poll<Self::Item, Self::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<Self::Item> {
         let item = self.inner.iter_mut().enumerate().filter_map(|(i, f)| {
             match f.poll(task) {
                 Poll::NotReady => None,
-                Poll::Ok(e) => Some((i, Ok(e))),
-                Poll::Err(e) => Some((i, Err(e))),
+                Poll::Ok(e) => Some((i, e)),
             }
         }).next();
         match item {
             Some((idx, res)) => {
                 self.inner.remove(idx);
                 let rest = mem::replace(&mut self.inner, Vec::new());
-                match res {
-                    Ok(e) => Poll::Ok((e, idx, rest)),
-                    Err(e) => Poll::Err((e, idx, rest)),
-                }
+                Poll::Ok((res, idx, rest))
             }
             None => Poll::NotReady,
         }
@@ -78,7 +73,7 @@ impl<A> Future for SelectAll<A>
     }
 
     fn tailcall(&mut self)
-                -> Option<Box<Future<Item=Self::Item, Error=Self::Error>>> {
+                -> Option<Box<Future<Item=Self::Item>>> {
         for f in self.inner.iter_mut() {
             f.inner.collapse();
         }
@@ -90,9 +85,8 @@ impl<A> Future for SelectAllNext<A>
     where A: Future,
 {
     type Item = A::Item;
-    type Error = A::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<Self::Item, Self::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<Self::Item> {
         self.inner.poll(task)
     }
 
@@ -101,7 +95,7 @@ impl<A> Future for SelectAllNext<A>
     }
 
     fn tailcall(&mut self)
-                -> Option<Box<Future<Item=Self::Item, Error=Self::Error>>> {
+                -> Option<Box<Future<Item=Self::Item>>> {
         self.inner.collapse();
         match self.inner {
             Collapsed::Tail(ref mut a) => {

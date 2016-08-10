@@ -18,9 +18,8 @@ pub fn new<A: Future>(f: A) -> Fuse<A> {
 
 impl<A: Future> Future for Fuse<A> {
     type Item = A::Item;
-    type Error = A::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<A::Item, A::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<A::Item> {
         let ret = self.future.as_mut().map(|f| f.poll(task));
         if ret.as_ref().map(|r| r.is_ready()) == Some(true) {
             self.future = None;

@@ -3,8 +3,8 @@ use {Future, Task, Poll};
 /// A future representing a value that is immediately ready.
 ///
 /// Created by the `done` function.
-pub struct Done<T, E> {
-    inner: Option<Result<T, E>>,
+pub struct Done<T> {
+    inner: Option<T>,
 }
 
 /// Creates a new "leaf future" which will resolve with the given result.
@@ -21,21 +21,18 @@ pub struct Done<T, E> {
 /// let future_of_1 = done::<u32, u32>(Ok(1));
 /// let future_of_err_2 = done::<u32, u32>(Err(2));
 /// ```
-pub fn done<T, E>(r: Result<T, E>) -> Done<T, E>
+pub fn done<T>(r: T) -> Done<T>
     where T: Send + 'static,
-          E: Send + 'static,
 {
     Done { inner: Some(r) }
 }
 
-impl<T, E> Future for Done<T, E>
+impl<T> Future for Done<T>
     where T: Send + 'static,
-          E: Send + 'static,
 {
     type Item = T;
-    type Error = E;
 
-    fn poll(&mut self, _task: &mut Task) -> Poll<T, E> {
+    fn poll(&mut self, _task: &mut Task) -> Poll<T> {
         self.inner.take().expect("cannot poll Done twice").into()
     }
 

@@ -21,15 +21,13 @@ pub fn new<A>(future: A) -> Flatten<A>
 impl<A> Future for Flatten<A>
     where A: Future,
           A::Item: IntoFuture,
-          <<A as Future>::Item as IntoFuture>::Error: From<<A as Future>::Error>
 {
     type Item = <<A as Future>::Item as IntoFuture>::Item;
-    type Error = <<A as Future>::Item as IntoFuture>::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<Self::Item, Self::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<Self::Item> {
         self.state.poll(task, |a, ()| {
-            let future = try!(a).into_future();
-            Ok(Err(future))
+            let future = a.into_future();
+            Err(future)
         })
     }
 
@@ -38,7 +36,7 @@ impl<A> Future for Flatten<A>
     }
 
     fn tailcall(&mut self)
-                -> Option<Box<Future<Item=Self::Item, Error=Self::Error>>> {
+                -> Option<Box<Future<Item=Self::Item>>> {
         self.state.tailcall()
     }
 }

@@ -5,9 +5,8 @@ use {Future, Task, Poll};
 /// A future representing a finished successful computation.
 ///
 /// Created by the `finished` function.
-pub struct Finished<T, E> {
+pub struct Finished<T> {
     t: Option<T>,
-    _e: marker::PhantomData<E>,
 }
 
 /// Creates a "leaf future" from an immediate value of a finished and
@@ -23,22 +22,19 @@ pub struct Finished<T, E> {
 ///
 /// let future_of_1 = finished::<u32, u32>(1);
 /// ```
-pub fn finished<T, E>(t: T) -> Finished<T, E>
+pub fn finished<T>(t: T) -> Finished<T>
     where T: Send + 'static,
-          E: Send + 'static,
 {
-    Finished { t: Some(t), _e: marker::PhantomData }
+    Finished { t: Some(t) }
 }
 
-impl<T, E> Future for Finished<T, E>
+impl<T> Future for Finished<T>
     where T: Send + 'static,
-          E: Send + 'static,
 {
     type Item = T;
-    type Error = E;
 
 
-    fn poll(&mut self, _: &mut Task) -> Poll<T, E> {
+    fn poll(&mut self, _: &mut Task) -> Poll<T> {
         Poll::Ok(self.t.take().expect("cannot poll Finished twice"))
     }
 

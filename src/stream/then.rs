@@ -15,7 +15,7 @@ pub struct Then<S, F, U>
 
 pub fn new<S, F, U>(s: S, f: F) -> Then<S, F, U>
     where S: Stream,
-          F: FnMut(Result<S::Item, S::Error>) -> U + Send + 'static,
+          F: FnMut(S::Item) -> U + Send + 'static,
           U: IntoFuture,
 {
     Then {
@@ -27,18 +27,16 @@ pub fn new<S, F, U>(s: S, f: F) -> Then<S, F, U>
 
 impl<S, F, U> Stream for Then<S, F, U>
     where S: Stream,
-          F: FnMut(Result<S::Item, S::Error>) -> U + Send + 'static,
+          F: FnMut(S::Item) -> U + Send + 'static,
           U: IntoFuture,
 {
     type Item = U::Item;
-    type Error = U::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<Option<U::Item>, U::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<Option<U::Item>> {
         if self.future.is_none() {
             let item = match try_poll!(self.stream.poll(task)) {
-                Ok(None) => return Poll::Ok(None),
-                Ok(Some(e)) => Ok(e),
-                Err(e) => Err(e),
+                None => return Poll::Ok(None),
+                Some(e) => e,
             };
             self.future = Some((self.f)(item).into_future());
         }

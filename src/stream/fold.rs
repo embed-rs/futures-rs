@@ -27,7 +27,6 @@ pub fn new<S, F, Fut, T>(s: S, f: F, t: T) -> Fold<S, F, Fut, T>
     where S: Stream,
           F: FnMut(T, S::Item) -> Fut + Send + 'static,
           Fut: IntoFuture<Item = T>,
-          Fut::Error: Into<S::Error>,
           T: Send + 'static
 {
     Fold {
@@ -41,13 +40,11 @@ impl<S, F, Fut, T> Future for Fold<S, F, Fut, T>
     where S: Stream,
           F: FnMut(T, S::Item) -> Fut + Send + 'static,
           Fut: IntoFuture<Item = T>,
-          Fut::Error: Into<S::Error>,
           T: Send + 'static
 {
     type Item = T;
-    type Error = S::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<T, S::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<T> {
         loop {
             match mem::replace(&mut self.state, State::Empty) {
                 State::Empty => panic!("cannot poll Fold twice"),
@@ -58,7 +55,6 @@ impl<S, F, Fut, T> Future for Fold<S, F, Fut, T>
                             self.state = State::Processing(future.into_future());
                         }
                         Poll::Ok(None) => return Poll::Ok(state),
-                        Poll::Err(e) => return Poll::Err(e),
                         Poll::NotReady => {
                             self.state = State::Ready(state);
                             return Poll::NotReady
@@ -68,7 +64,6 @@ impl<S, F, Fut, T> Future for Fold<S, F, Fut, T>
                 State::Processing(mut fut) => {
                     match fut.poll(task) {
                         Poll::Ok(state) => self.state = State::Ready(state),
-                        Poll::Err(e) => return Poll::Err(e.into()),
                         Poll::NotReady => {
                             self.state = State::Processing(fut);
                             return Poll::NotReady;

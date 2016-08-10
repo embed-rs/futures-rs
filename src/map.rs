@@ -24,11 +24,10 @@ impl<U, A, F> Future for Map<A, F>
           U: Send + 'static,
 {
     type Item = U;
-    type Error = A::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<U, A::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<U> {
         let result = try_poll!(self.future.poll(task));
-        result.map(self.f.take().expect("cannot poll Map twice")).into()
+        self.f.take().expect("cannot poll Map twice")(result).into()
     }
 
     fn schedule(&mut self, task: &mut Task) {
@@ -36,7 +35,7 @@ impl<U, A, F> Future for Map<A, F>
     }
 
     fn tailcall(&mut self)
-                -> Option<Box<Future<Item=Self::Item, Error=Self::Error>>> {
+                -> Option<Box<Future<Item=Self::Item>>> {
         self.future.collapse();
         None
     }

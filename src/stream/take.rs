@@ -22,9 +22,8 @@ impl<S> Stream for Take<S>
     where S: Stream,
 {
     type Item = S::Item;
-    type Error = S::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<Option<S::Item>, S::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<Option<S::Item>> {
         if self.remaining == 0 {
             Poll::Ok(None)
         } else {

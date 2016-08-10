@@ -18,7 +18,6 @@ mod iter;
 pub use self::channel::{channel, Sender, Receiver};
 pub use self::iter::{iter, IterStream};
 
-mod and_then;
 mod buffered;
 mod collect;
 mod filter;
@@ -29,14 +28,11 @@ mod for_each;
 mod fuse;
 mod future;
 mod map;
-mod map_err;
 mod merge;
-mod or_else;
 mod skip;
 mod skip_while;
 mod take;
 mod then;
-pub use self::and_then::AndThen;
 pub use self::buffered::Buffered;
 pub use self::collect::Collect;
 pub use self::filter::Filter;
@@ -47,9 +43,7 @@ pub use self::for_each::ForEach;
 pub use self::fuse::Fuse;
 pub use self::future::StreamFuture;
 pub use self::map::Map;
-pub use self::map_err::MapErr;
 pub use self::merge::{Merge, MergedItem};
-pub use self::or_else::OrElse;
 pub use self::skip::Skip;
 pub use self::skip_while::SkipWhile;
 pub use self::take::Take;
@@ -92,9 +86,6 @@ pub trait Stream: Send + 'static {
     /// The type of item this stream will yield on success.
     type Item: Send + 'static;
 
-    /// The type of error this stream may generate.
-    type Error: Send + 'static;
-
     /// Attempt to pull out the next value of this stream, returning `None` if
     /// it's not ready yet.
     ///
@@ -122,7 +113,7 @@ pub trait Stream: Send + 'static {
     /// If this is difficult to guard against then the `fuse` adapter can be
     /// used to ensure that `poll` always has well-defined semantics.
     // TODO: more here
-    fn poll(&mut self, task: &mut Task) -> Poll<Option<Self::Item>, Self::Error>;
+    fn poll(&mut self, task: &mut Task) -> Poll<Option<Self::Item>>;
 
     // TODO: should there also be a method like `poll` but doesn't return an
     //       item? basically just says "please make more progress internally"
@@ -175,7 +166,7 @@ pub trait Stream: Send + 'static {
     /// let (_tx, rx) = channel();
     /// let a: Box<Stream<Item=i32, Error=i32>> = rx.boxed();
     /// ```
-    fn boxed(self) -> Box<Stream<Item = Self::Item, Error = Self::Error>>
+    fn boxed(self) -> Box<Stream<Item = Self::Item>>
         where Self: Sized
     {
         Box::new(self)
@@ -217,32 +208,6 @@ pub trait Stream: Send + 'static {
               Self: Sized
     {
         map::new(self, f)
-    }
-
-    /// Converts a stream of error type `T` to a stream of error type `U`.
-    ///
-    /// The provided closure is executed over all errors of this stream as
-    /// they are made available, and the callback will be executed inline with
-    /// calls to `poll`.
-    ///
-    /// Note that this function consumes the receiving future and returns a
-    /// wrapped version of it, similar to the existing `map_err` methods in the
-    /// standard library.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use futures::stream::*;
-    ///
-    /// let (_tx, rx) = channel::<i32, u32>();
-    /// let rx = rx.map_err(|x| x + 3);
-    /// ```
-    fn map_err<U, F>(self, f: F) -> MapErr<Self, F>
-        where F: FnMut(Self::Error) -> U + Send + 'static,
-              U: Send + 'static,
-              Self: Sized
-    {
-        map_err::new(self, f)
     }
 
     /// Filters the values produced by this stream according to the provided
@@ -341,97 +306,11 @@ pub trait Stream: Send + 'static {
     /// });
     /// ```
     fn then<F, U>(self, f: F) -> Then<Self, F, U>
-        where F: FnMut(Result<Self::Item, Self::Error>) -> U + Send + 'static,
+        where F: FnMut(Self::Item) -> U + Send + 'static,
               U: IntoFuture,
               Self: Sized
     {
         then::new(self, f)
-    }
-
-    /// Chain on a computation for when a value is ready, passing the successful
-    /// results to the provided closure `f`.
-    ///
-    /// This function can be used run a unit of work when the next successful
-    /// value on a stream is ready. The closure provided will be yielded a value
-    /// when ready, and the returned future will then be run to completion to
-    /// produce the next value on this stream.
-    ///
-    /// Any errors produced by this stream will not be passed to the closure,
-    /// and will be passed through.
-    ///
-    /// The returned value of the closure must implement the `IntoFuture` trait
-    /// and can represent some more work to be done before the composed stream
-    /// is finished. Note that the `Result` type implements the `IntoFuture`
-    /// trait so it is possible to simply alter the `Result` yielded to the
-    /// closure and return it.
-    ///
-    /// Note that this function consumes the receiving future and returns a
-    /// wrapped version of it.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use futures::stream::*;
-    ///
-    /// let (_tx, rx) = channel::<i32, u32>();
-    ///
-    /// let rx = rx.and_then(|result| {
-    ///     if result % 2 == 0 {
-    ///         Ok(result)
-    ///     } else {
-    ///         Err(result as u32)
-    ///     }
-    /// });
-    /// ```
-    fn and_then<F, U>(self, f: F) -> AndThen<Self, F, U>
-        where F: FnMut(Self::Item) -> U + Send + 'static,
-              U: IntoFuture<Error = Self::Error>,
-              Self: Sized
-    {
-        and_then::new(self, f)
-    }
-
-    /// Chain on a computation for when an error happens, passing the
-    /// erroneous result to the provided closure `f`.
-    ///
-    /// This function can be used run a unit of work and attempt to recover from
-    /// an error if one happens. The closure provided will be yielded an error
-    /// when one appears, and the returned future will then be run to completion
-    /// to produce the next value on this stream.
-    ///
-    /// Any successful values produced by this stream will not be passed to the
-    /// closure, and will be passed through.
-    ///
-    /// The returned value of the closure must implement the `IntoFuture` trait
-    /// and can represent some more work to be done before the composed stream
-    /// is finished. Note that the `Result` type implements the `IntoFuture`
-    /// trait so it is possible to simply alter the `Result` yielded to the
-    /// closure and return it.
-    ///
-    /// Note that this function consumes the receiving future and returns a
-    /// wrapped version of it.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use futures::stream::*;
-    ///
-    /// let (_tx, rx) = channel::<i32, u32>();
-    ///
-    /// let rx = rx.or_else(|result| {
-    ///     if result % 2 == 0 {
-    ///         Ok(result as i32)
-    ///     } else {
-    ///         Err(result)
-    ///     }
-    /// });
-    /// ```
-    fn or_else<F, U>(self, f: F) -> OrElse<Self, F, U>
-        where F: FnMut(Self::Error) -> U + Send + 'static,
-              U: IntoFuture<Item = Self::Item>,
-              Self: Sized
-    {
-        or_else::new(self, f)
     }
 
     /// Collect all of the values of this stream into a vector, returning a
@@ -512,7 +391,6 @@ pub trait Stream: Send + 'static {
     fn fold<F, T, Fut>(self, init: T, f: F) -> Fold<Self, F, Fut, T>
         where F: FnMut(T, Self::Item) -> Fut + Send + 'static,
               Fut: IntoFuture<Item = T>,
-              Fut::Error: Into<Self::Error>,
               T: Send + 'static,
               Self: Sized
     {
@@ -544,7 +422,6 @@ pub trait Stream: Send + 'static {
     /// ```
     fn flatten(self) -> Flatten<Self>
         where Self::Item: Stream,
-              <Self::Item as Stream>::Error: From<Self::Error>,
               Self: Sized
     {
         flatten::new(self)
@@ -559,7 +436,7 @@ pub trait Stream: Send + 'static {
     /// stream.
     fn skip_while<P, R>(self, pred: P) -> SkipWhile<Self, P, R>
         where P: FnMut(&Self::Item) -> R + Send + 'static,
-              R: IntoFuture<Item=bool, Error=Self::Error>,
+              R: IntoFuture<Item=bool>,
               Self: Sized
     {
         skip_while::new(self, pred)
@@ -568,7 +445,7 @@ pub trait Stream: Send + 'static {
     // TODO: should this closure return a result?
     #[allow(missing_docs)]
     fn for_each<F>(self, f: F) -> ForEach<Self, F>
-        where F: FnMut(Self::Item) -> Result<(), Self::Error> + Send + 'static,
+        where F: FnMut(Self::Item) + Send + 'static,
               Self: Sized
     {
         for_each::new(self, f)
@@ -625,7 +502,7 @@ pub trait Stream: Send + 'static {
     /// The returned stream will be a stream of each future's result, with
     /// errors passed through whenever they occur.
     fn buffered(self, amt: usize) -> Buffered<Self>
-        where Self::Item: IntoFuture<Error = <Self as Stream>::Error>,
+        where Self::Item: IntoFuture,
               Self: Sized
     {
         buffered::new(self, amt)
@@ -637,7 +514,7 @@ pub trait Stream: Send + 'static {
     /// streams as they become available. Errors, however, are not merged: you
     /// get at most one error at a time.
     fn merge<S>(self, other: S) -> Merge<Self, S>
-        where S: Stream<Error = Self::Error>,
+        where S: Stream,
               Self: Sized,
     {
         merge::new(self, other)

@@ -8,11 +8,11 @@ use {Future, Task, Poll};
 /// immediately.
 pub enum Collapsed<T: Future> {
     Start(T),
-    Tail(Box<Future<Item=T::Item, Error=T::Error>>),
+    Tail(Box<Future<Item=T::Item>>),
 }
 
 impl<T: Future> Collapsed<T> {
-    pub fn poll(&mut self, task: &mut Task) -> Poll<T::Item, T::Error> {
+    pub fn poll(&mut self, task: &mut Task) -> Poll<T::Item> {
         match *self {
             Collapsed::Start(ref mut a) => a.poll(task),
             Collapsed::Tail(ref mut a) => a.poll(task),

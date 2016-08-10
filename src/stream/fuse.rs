@@ -17,9 +17,8 @@ pub fn new<S: Stream>(s: S) -> Fuse<S> {
 
 impl<S: Stream> Stream for Fuse<S> {
     type Item = S::Item;
-    type Error = S::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<Option<S::Item>, S::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<Option<S::Item>> {
         let ret = self.stream.as_mut().map(|s| s.poll(task));
         match ret {
             Some(Poll::Ok(None)) => self.stream = None,

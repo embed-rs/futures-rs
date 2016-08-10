@@ -27,9 +27,8 @@ impl<S, F, U> Stream for Map<S, F>
           U: Send + 'static,
 {
     type Item = U;
-    type Error = S::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<Option<U>, S::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<Option<U>> {
         self.stream.poll(task).map(|option| option.map(&mut self.f))
     }
 

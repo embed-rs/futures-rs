@@ -3,9 +3,8 @@ use stream::Stream;
 
 impl<S: ?Sized + Stream> Stream for Box<S> {
     type Item = S::Item;
-    type Error = S::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<Option<Self::Item>, Self::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<Option<Self::Item>> {
         (**self).poll(task)
     }
 

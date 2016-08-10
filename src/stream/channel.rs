@@ -83,14 +83,12 @@ impl<T, E> Stream for Receiver<T, E>
     where T: Send + 'static,
           E: Send + 'static,
 {
-    type Item = T;
-    type Error = E;
+    type Item = Result<T, E>;
 
-    fn poll(&mut self, _task: &mut Task) -> Poll<Option<T>, E> {
+    fn poll(&mut self, _task: &mut Task) -> Poll<Option<Result<T, E>>> {
         // TODO: disconnect?
         match self.inner.slot.try_consume() {
-            Ok(Message::Data(Ok(e))) => Poll::Ok(Some(e)),
-            Ok(Message::Data(Err(e))) => Poll::Err(e),
+            Ok(Message::Data(e)) => Poll::Ok(Some(e)),
             Ok(Message::Done) => Poll::Ok(None),
             Err(..) => Poll::NotReady,
         }
@@ -154,14 +152,13 @@ impl<T, E> Future for FutureSender<T, E>
     where T: Send + 'static,
           E: Send + 'static,
 {
-    type Item = Sender<T, E>;
-    type Error = SendError<T, E>;
+    type Item = Result<Sender<T, E>, SendError<T, E>>;
 
-    fn poll(&mut self, _task: &mut Task) -> Poll<Self::Item, Self::Error> {
+    fn poll(&mut self, _task: &mut Task) -> Poll<Self::Item> {
         let data = self.data.take().expect("cannot poll FutureSender twice");
         let sender = self.sender.take().expect("cannot poll FutureSender twice");
         match sender.inner.slot.try_produce(Message::Data(data)) {
-            Ok(()) => return Poll::Ok(sender),
+            Ok(()) => return Poll::Ok(Ok(sender)),
             Err(e) => {
                 self.data = Some(match e.into_inner() {
                     Message::Data(data) => data,

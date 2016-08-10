@@ -18,9 +18,9 @@ impl<A, B, C> Chain<A, B, C>
         Chain::First(Collapsed::Start(a), c)
     }
 
-    pub fn poll<F>(&mut self, task: &mut Task, f: F) -> Poll<B::Item, B::Error>
-        where F: FnOnce(Result<A::Item, A::Error>, C)
-                        -> Result<Result<B::Item, B>, B::Error> + Send + 'static,
+    pub fn poll<F>(&mut self, task: &mut Task, f: F) -> Poll<B::Item>
+        where F: FnOnce(A::Item, C)
+                        -> Result<B::Item, B> + Send + 'static,
     {
         let a_result = match *self {
             Chain::First(ref mut a, _) => try_poll!(a.poll(task)),
@@ -32,13 +32,12 @@ impl<A, B, C> Chain<A, B, C>
             _ => panic!(),
         };
         match f(a_result, data) {
-            Ok(Ok(e)) => Poll::Ok(e),
-            Ok(Err(mut b)) => {
+            Ok(e) => Poll::Ok(e),
+            Err(mut b) => {
                 let ret = b.poll(task);
                 *self = Chain::Second(b);
                 ret
             }
-            Err(e) => Poll::Err(e),
         }
     }
 
@@ -51,7 +50,7 @@ impl<A, B, C> Chain<A, B, C>
     }
 
     pub fn tailcall(&mut self)
-                    -> Option<Box<Future<Item=B::Item, Error=B::Error>>> {
+                    -> Option<Box<Future<Item=B::Item>>> {
         match *self {
             Chain::First(ref mut a, _) => {
                 a.collapse();

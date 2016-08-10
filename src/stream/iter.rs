@@ -26,21 +26,15 @@ pub fn iter<I, T, E>(i: I) -> IterStream<I>
     }
 }
 
-impl<I, T, E> Stream for IterStream<I>
-    where I: Iterator<Item=Result<T, E>>,
+impl<I, T> Stream for IterStream<I>
+    where I: Iterator<Item=T>,
           I: Send + 'static,
           T: Send + 'static,
-          E: Send + 'static,
 {
     type Item = T;
-    type Error = E;
 
-    fn poll(&mut self, _task: &mut Task) -> Poll<Option<T>, E> {
-        match self.iter.next() {
-            Some(Ok(e)) => Poll::Ok(Some(e)),
-            Some(Err(e)) => Poll::Err(e),
-            None => Poll::Ok(None),
-        }
+    fn poll(&mut self, _task: &mut Task) -> Poll<Option<T>> {
+        Poll::Ok(self.iter.next())
     }
 
     fn schedule(&mut self, task: &mut Task) {

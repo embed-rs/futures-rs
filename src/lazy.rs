@@ -70,9 +70,8 @@ impl<F, R> Future for Lazy<F, R::Future>
           R: IntoFuture,
 {
     type Item = R::Item;
-    type Error = R::Error;
 
-    fn poll(&mut self, task: &mut Task) -> Poll<R::Item, R::Error> {
+    fn poll(&mut self, task: &mut Task) -> Poll<R::Item> {
         self.get().poll(task)
     }
 
@@ -80,7 +79,7 @@ impl<F, R> Future for Lazy<F, R::Future>
         self.get().schedule(task)
     }
 
-    fn tailcall(&mut self) -> Option<Box<Future<Item=R::Item, Error=R::Error>>> {
+    fn tailcall(&mut self) -> Option<Box<Future<Item=R::Item>>> {
         self.get().tailcall()
     }
 }

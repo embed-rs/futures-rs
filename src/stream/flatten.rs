@@ -15,7 +15,6 @@ pub struct Flatten<S>
 pub fn new<S>(s: S) -> Flatten<S>
     where S: Stream,
           S::Item: Stream,
-          <S::Item as Stream>::Error: From<S::Error>,
 {
     Flatten {
         stream: s,
@@ -26,19 +25,16 @@ pub fn new<S>(s: S) -> Flatten<S>
 impl<S> Stream for Flatten<S>
     where S: Stream,
           S::Item: Stream,
-          <S::Item as Stream>::Error: From<S::Error>,
 {
     type Item = <S::Item as Stream>::Item;
-    type Error = <S::Item as Stream>::Error;
 
     fn poll(&mut self, task: &mut Task)
-            -> Poll<Option<Self::Item>, Self::Error> {
+            -> Poll<Option<Self::Item>> {
         loop {
             if self.next.is_none() {
                 match try_poll!(self.stream.poll(task)) {
-                    Ok(Some(e)) => self.next = Some(e),
-                    Ok(None) => return Poll::Ok(None),
-                    Err(e) => return Poll::Err(From::from(e)),
+                    Some(e) => self.next = Some(e),
+                    None => return Poll::Ok(None),
                 }
             }
             assert!(self.next.is_some());
