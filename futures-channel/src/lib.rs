@@ -4,6 +4,8 @@
 //! asynchronous tasks.
 
 #![feature(futures_api)]
+#![feature(alloc)]
+#![feature(asm)]
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -12,9 +14,12 @@
 
 #![doc(html_root_url = "https://rust-lang-nursery.github.io/futures-api-docs/0.3.0-alpha.12/futures_channel")]
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 #[cfg(feature = "std")]
 mod lock;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std", feature = "alloc"))]
 pub mod mpsc;
 #[cfg(feature = "std")]
 pub mod oneshot;

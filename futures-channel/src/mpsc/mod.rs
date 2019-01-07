@@ -81,14 +81,31 @@
 use futures_core::stream::{FusedStream, Stream};
 use futures_core::task::{LocalWaker, Waker, Poll};
 use futures_core::task::__internal::AtomicWaker;
-use std::any::Any;
-use std::error::Error;
-use std::fmt;
-use std::pin::Pin;
-use std::sync::{Arc, Mutex};
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering::SeqCst;
-use std::usize;
+
+#[cfg(feature = "std")]
+use std::{
+    any::Any,
+    error::Error,
+    fmt, pin::Pin,
+    sync::{
+        Arc,
+        Mutex,
+        atomic::{AtomicUsize, Ordering::SeqCst}
+    },
+    usize,
+};
+
+#[cfg(feature = "alloc")]
+use {
+    core::{
+        fmt, pin::Pin,
+        sync::atomic::{AtomicUsize, Ordering::SeqCst},
+        usize,
+    },
+    alloc::sync::Arc,
+    self::mutex::Mutex,
+};
+
 
 use crate::mpsc::queue::Queue;
 
@@ -175,6 +192,7 @@ impl fmt::Display for SendError {
     }
 }
 
+#[cfg(feature = "std")]
 impl Error for SendError {
     fn description(&self) -> &str {
         if self.is_full() {
@@ -221,6 +239,7 @@ impl<T> fmt::Display for TrySendError<T> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<T: Any> Error for TrySendError<T> {
     fn description(&self) -> &str {
         if self.is_full() {
@@ -262,10 +281,11 @@ impl fmt::Debug for TryRecvError {
 
 impl fmt::Display for TryRecvError {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.write_str(self.description())
+        fmt.write_str("receiver channel is empty")
     }
 }
 
+#[cfg(feature = "std")]
 impl Error for TryRecvError {
     fn description(&self) -> &str {
         "receiver channel is empty"
@@ -956,4 +976,97 @@ fn encode_state(state: &State) -> usize {
     }
 
     num
+}
+
+#[cfg(feature = "alloc")]
+mod mutex {
+    use core::sync::atomic::{AtomicBool, Ordering, spin_loop_hint};
+    use core::cell::UnsafeCell;
+    use core::ops::{Deref, DerefMut};
+
+    #[derive(Debug)]
+    pub struct Mutex<T> {
+        lock: AtomicBool,
+        data: UnsafeCell<T>,
+    }
+
+    impl<T> Mutex<T> {
+        pub const fn new(data: T) -> Self {
+            Mutex {
+                lock: AtomicBool::new(false),
+                data: UnsafeCell::new(data),
+            }
+        }
+
+        pub fn lock(&self) -> MutexGuard<T> {
+            let interrupts_active = self.obtain_lock();
+            MutexGuard {
+                lock: &self.lock,
+                data: unsafe { &mut *self.data.get() },
+                enable_interrupts_after: interrupts_active,
+            }
+        }
+
+        fn obtain_lock(&self) -> bool {
+            let interrupts_active = {
+                let r: u32;
+                unsafe { asm!("mrs $0, PRIMASK" : "=r"(r) ::: "volatile") }
+                if r & (1 << 0) == (1 << 0) {
+                    false
+                } else {
+                    true
+                }
+            };
+
+            if interrupts_active {
+                // disable interrupts
+                unsafe { asm!("cpsid i" ::: "memory" : "volatile") };
+            }
+
+            while self.lock.compare_and_swap(false, true, Ordering::Acquire) != false {
+                while self.lock.load(Ordering::Relaxed) {
+                    spin_loop_hint();
+                }
+            }
+            
+            interrupts_active
+        }
+    }
+
+    pub struct MutexGuard<'a, T: 'a> {
+        lock: &'a AtomicBool,
+        data: &'a mut T,
+        enable_interrupts_after: bool,
+    }
+
+    // Same unsafe impls as `std::sync::Mutex`
+    unsafe impl<T: Send> Sync for Mutex<T> {}
+    unsafe impl<T: Send> Send for Mutex<T> {}
+
+    impl<'a, T: 'a> MutexGuard<'a, T> {
+
+        pub fn unwrap(self) -> Self {
+            self
+        }
+    }
+
+    impl<'a, T> Deref for MutexGuard<'a, T> {
+        type Target = T;
+        fn deref<'b>(&'b self) -> &'b T { &*self.data }
+    }
+
+    impl<'a, T> DerefMut for MutexGuard<'a, T> {
+        fn deref_mut<'b>(&'b mut self) -> &'b mut T { &mut *self.data }
+    }
+
+
+    impl<'a, T: 'a> Drop for MutexGuard<'a, T> {
+        fn drop(&mut self) {
+            self.lock.store(false, Ordering::Release);
+            if self.enable_interrupts_after {
+                // enable interrupts
+                unsafe { asm!("cpsie i" ::: "memory" : "volatile") };
+            }
+        }
+    }
 }

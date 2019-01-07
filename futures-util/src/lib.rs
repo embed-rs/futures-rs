@@ -2,6 +2,7 @@
 //! and the `AsyncRead` and `AsyncWrite` traits.
 
 #![feature(futures_api)]
+#![feature(alloc)]
 #![cfg_attr(feature = "std", feature(async_await, await_macro))]
 #![cfg_attr(feature = "nightly", feature(cfg_target_has_atomic))]
 
@@ -10,6 +11,9 @@
 #![deny(bare_trait_objects)]
 
 #![doc(html_root_url = "https://rust-lang-nursery.github.io/futures-api-docs/0.3.0-alpha.12/futures_util")]
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
 #[macro_use]
 mod macros;

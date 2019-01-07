@@ -22,6 +22,7 @@ io-compat = ["compat", "tokio-io"]
 tokio-compat = ["compat", "tokio-executor"]
 bench = []
 nightly = []
+alloc = []
 
 [dependencies]
 futures-core-preview = { path = "../futures-core", version = "=0.3.0-alpha.12", default-features = false }
