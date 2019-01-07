@@ -61,7 +61,7 @@ pub use futures_util::{
     join, try_join, pending, poll,
 };
 
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std", feature = "alloc"))]
 pub mod channel {
     //! Cross-task communication.
     //!
@@ -74,7 +74,9 @@ pub mod channel {
     //!   channel for sending values between tasks, analogous to the
     //!   similarly-named structure in the standard library.
 
-    pub use futures_channel::{oneshot, mpsc};
+    pub use futures_channel::mpsc;
+    #[cfg(feature = "std")]
+    pub use futures_channel::oneshot;
 }
 
 #[cfg(feature = "compat")]
@@ -375,6 +377,10 @@ pub mod task {
         WakerRef, waker_ref, ArcWake,
         SpawnExt, LocalSpawnExt,
         noop_waker_ref,
+    };
+    #[cfg(feature = "alloc")]
+    pub use futures_util::task::{
+        LocalSpawnExt,
     };
 
     #[cfg_attr(

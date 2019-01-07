@@ -17,6 +17,7 @@ name = "futures_channel"
 [features]
 std = ["futures-core-preview/std"]
 default = ["std"]
+alloc = []
 
 [dependencies]
 futures-core-preview = { path = "../futures-core", version = "=0.3.0-alpha.13", default-features = false }
